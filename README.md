@@ -1,51 +1,31 @@
-# Library Management System - Flask Web Application with SQLite
+# Library Management System — Flask + SQLite
 
-## Overview
+[![Tests](https://github.com/limonata779/cisc327-library-management-a2--1472-/actions/workflows/python-tests.yml/badge.svg)](https://github.com/limonata779/cisc327-library-management-a2--1472-/actions/workflows/python-tests.yml)
 
-This project contains a partial implementation of a Flask-based Library Management System with SQLite database, designed for CISC 327 (Software Quality Assurance) coursework.
+A small library app used for CISC/CMPE 327. It keeps a catalog, lets patrons borrow/return books, calculates late fees, and exposes simple pages/APIs. The code is written to be easy to unit test.
 
-Students are provided with:
+## Quick start (local)
 
-- [`requirements_specification.md`](requirements_specification.md): Complete requirements document with 7 functional requirements (R1-R7)
-- [`app.py`](app.py): Main Flask application with application factory pattern
-- [`routes/`](routes/): Modular Flask blueprints for different functionalities
-  - [`catalog_routes.py`](routes/catalog_routes.py): Book catalog display and management routes
-  - [`borrowing_routes.py`](routes/borrowing_routes.py): Book borrowing and return routes
-  - [`api_routes.py`](routes/api_routes.py): JSON API endpoints for late fees and search
-  - [`search_routes.py`](routes/search_routes.py): Book search functionality routes
-- [`database.py`](database.py): Database operations and SQLite functions
-- [`library_service.py`](library_service.py): **Business logic functions** (your main testing focus)
-- [`templates/`](templates/): HTML templates for the web interface
-- [`requirements.txt`](requirements.txt): Python dependencies
+```bash
+# Python 3.10+ recommended (3.11 used in CI)
 
-## ❗ Known Issues
-The implemented functions may contain intentional bugs. Students should discover these through unit testing (to be covered in later assignments).
+# 1) create & activate a virtual env
+python -m venv .venv
+# macOS/Linux
+source .venv/bin/activate
+# Windows (PowerShell)
+.\.venv\Scripts\Activate.ps1
 
-## Database Schema
-**Books Table:**
-- `id` (INTEGER PRIMARY KEY)
-- `title` (TEXT NOT NULL)
-- `author` (TEXT NOT NULL)  
-- `isbn` (TEXT UNIQUE NOT NULL)
-- `total_copies` (INTEGER NOT NULL)
-- `available_copies` (INTEGER NOT NULL)
+# 2) install deps
+pip install -r requirements.txt
 
-**Borrow Records Table:**
-- `id` (INTEGER PRIMARY KEY)
-- `patron_id` (TEXT NOT NULL)
-- `book_id` (INTEGER FOREIGN KEY)
-- `borrow_date` (TEXT NOT NULL)
-- `due_date` (TEXT NOT NULL)
-- `return_date` (TEXT NULL)
+# 3) init the SQLite DB (creates library.db) and seed a few books
+python -c "from database import init_database, add_sample_data; init_database(); add_sample_data()"
 
-## Assignment Instructions
-See [`student_instructions.md`](student_instructions.md) for complete assignment details.
+# 4) run the app
+flask --app app.py run
 
-**Resources for students:**
-
-- [Flask Documentation](https://flask.palletsprojects.com/)
-- [Test Driven Development](https://www.datacamp.com/tutorial/test-driven-development-in-python)
-- [Pytest framework](https://realpython.com/pytest-python-testing/)
-- [Python Blueprint](https://flask.palletsprojects.com/en/stable/blueprints)
-
-
+# 5) run tests
+pytest -q
+# or just the suite:
+pytest -q tests/
