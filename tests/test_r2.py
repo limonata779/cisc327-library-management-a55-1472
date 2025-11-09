@@ -55,4 +55,3 @@ def test_copies_ok():
         total = row["total_copies"]
         assert isinstance(avail, int) and isinstance(total, int)
         assert 0 <= avail <= total
-
