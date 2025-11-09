@@ -1,9 +1,9 @@
 # R4 tests for library_service.return_book_by_patron
 import pytest
 from datetime import datetime, timedelta
-from library_service import return_book_by_patron  # (patron_id: str, book_id: int)
+from services.library_service import return_book_by_patron
 
-# helpers for setup/inspection
+# helpers for setup
 from database import (
     get_book_by_isbn,
     insert_borrow_record,
