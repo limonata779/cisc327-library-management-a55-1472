@@ -1,6 +1,6 @@
 import pytest
 from datetime import datetime, timedelta
-from library_service import borrow_book_by_patron
+from services.library_service import borrow_book_by_patron
 
 # Minimal DB helpers used to inspect state
 from database import (
@@ -105,3 +105,45 @@ def test_reject_over_five_active():
     ok, msg = borrow_book_by_patron(card, book_pk)
     assert ok is False
     assert "maximum borrowing limit" in (msg or "").lower()
+
+
+def test_borrow_fails_book_missing(mocker):
+    """
+    get_book_by_id() returns None and then "Book not found." branch at lines 83 and 84
+    """
+    mocker.patch("services.library_service.get_book_by_id", return_value=None)
+    ok, msg = borrow_book_by_patron("413579", 7777)
+    assert ok is False
+    assert msg == "Book not found."
+
+def test_borrow_reports_stock_error(mocker):
+    """
+    insert_borrow_record() succeeds but update_book_availability() fails. line 98 never jumped to line 99 because line
+    99 was never true
+    """
+    mocker.patch(
+        "services.library_service.get_book_by_id",
+        return_value={"id": 52, "title": "Stock Market", "available_copies": 1},
+    )
+    mocker.patch("services.library_service.get_patron_borrow_count", return_value=0)
+    mocker.patch("services.library_service.insert_borrow_record", return_value=True)
+    mocker.patch("services.library_service.update_book_availability", return_value=False)
+    ok, msg = borrow_book_by_patron("717171", 52)
+    assert ok is False
+    assert msg == "Database error occurred while updating book availability."
+
+
+def test_borrow_reports_record_error(mocker):
+    """
+    insert_borrow_record() returns dalse which is the error branch at 95-96.
+    """
+    mocker.patch(
+        "services.library_service.get_book_by_id",
+        return_value={"id": 41, "title": "Hansel and Gretel", "available_copies": 2},
+    )
+    mocker.patch("services.library_service.get_patron_borrow_count", return_value=0)
+    mocker.patch("services.library_service.insert_borrow_record", return_value=False)
+    mocker.patch("services.library_service.update_book_availability", return_value=True)
+    ok, msg = borrow_book_by_patron("606060", 41)
+    assert ok is False
+    assert msg == "Database error occurred while creating borrow record."
