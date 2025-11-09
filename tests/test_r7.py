@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta
-from library_service import get_patron_status_report, return_book_by_patron
+from services.library_service import get_patron_status_report, return_book_by_patron
 from database import (
     insert_borrow_record,
     insert_book,
     update_book_availability,
     get_book_by_isbn,
 )
+
 
 #helpers
 def stash(*, title: str, author: str, isbn: str, total: int, avail: int) -> int:
@@ -16,6 +17,7 @@ def stash(*, title: str, author: str, isbn: str, total: int, avail: int) -> int:
     insert_book(title, author, isbn, total, avail)
     return get_book_by_isbn(isbn)["id"]
 
+
 def checkout(patron: str, *, book_id: int, days_ago: int = 1, due_in: int = 7) -> None:
     """
     Create active loan (no return_date)
@@ -24,6 +26,7 @@ def checkout(patron: str, *, book_id: int, days_ago: int = 1, due_in: int = 7) -
     due = datetime.now() + timedelta(days=due_in)
     insert_borrow_record(patron, book_id, start, due)
 
+
 def checkout_overdue(patron: str, *, book_id: int, overdue_days: int) -> None:
     """
     Create an active loan thats already overdue by n days.
@@ -31,6 +34,7 @@ def checkout_overdue(patron: str, *, book_id: int, overdue_days: int) -> None:
     start = datetime.now() - timedelta(days=16)
     due = datetime.now() - timedelta(days=overdue_days)
     insert_borrow_record(patron, book_id, start, due)
+
 
 # tests
 def test_mixed_active_returned():
@@ -85,6 +89,7 @@ def test_empty_patron():
     assert float(report.get("late_fees", 0.0)) == 0.0
     assert report.get("history", []) == []
 
+
 def test_rejects_id():
     """
     negative, bad patron id should return an empty report.
@@ -93,11 +98,12 @@ def test_rejects_id():
     report = get_patron_status_report(bad)
     assert isinstance(report, dict)
     zero = (
-        report.get("active_count", 0) == 0
-        and float(report.get("late_fees", 0.0)) == 0.0
-        and report.get("borrowed_now", []) == []
+            report.get("active_count", 0) == 0
+            and float(report.get("late_fees", 0.0)) == 0.0
+            and report.get("borrowed_now", []) == []
     )
     assert zero or "status" in report
+
 
 def test_status_list_len():
     """
@@ -110,3 +116,4 @@ def test_status_list_len():
     update_book_availability(b, -1)
     report = get_patron_status_report(who)
     assert report["active_count"] == len(report["borrowed_now"])
+
