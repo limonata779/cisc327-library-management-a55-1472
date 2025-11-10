@@ -68,3 +68,7 @@ def test_isbn_partial_rejected():
     # One digit short should not return anything
     rows = search_books_in_catalog("990173845620", "isbn")
     assert rows == [] or len(rows) == 0
+
+def test_search_rejects_empty_query():
+    results = search_books_in_catalog("", "title")
+    assert results == []
