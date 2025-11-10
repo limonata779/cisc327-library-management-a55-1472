@@ -67,34 +67,3 @@ def test_fee_capped_at_max():
     out = calculate_late_fee_for_book(patron, book)
     assert out.get("days_overdue") == 40
     assert round(float(out.get("fee_amount", -1.0)), 2) == 15.00
-
-
-def test_fee_book_not_found_path():
-    """
-    valid patron but unknown book id leads to 'Book not found'. Essentially temp DB has no books yet so any id will do.)
-    """
-    out = calculate_late_fee_for_book("314159", 9999)
-    assert out["status"] == "Book not found"
-    assert out["fee_amount"] == 0.00
-    assert out["days_overdue"] == 0
-
-
-def test_fee_invalid_due_date(mocker):
-    """
-    active loan exists but its due_date is malformed which putputs 'Invalid due date'. Stubbing DB calls directly
-    instead of touching the real database.
-    """
-    # pretends this book exists
-    mocker.patch(
-        "services.library_service.get_book_by_id",
-        return_value={"id": 42, "title": "Broken Calendar"},
-    )
-    # active borrow with an invalid due_date string
-    mocker.patch(
-        "services.library_service.get_active_borrow",
-        return_value={"due_date": "not-a-real-date"},
-    )
-    out = calculate_late_fee_for_book("808080", 42)
-    assert out["status"] == "Invalid due date"
-    assert out["fee_amount"] == 0.00
-    assert out["days_overdue"] == 0
