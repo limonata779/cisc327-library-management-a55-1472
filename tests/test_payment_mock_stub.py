@@ -1,7 +1,7 @@
 from unittest.mock import Mock
+from datetime import datetime, timedelta
 from services.payment_service import PaymentGateway
-from services.library_service import pay_late_fees, refund_late_fee_payment
-
+from services.library_service import pay_late_fees, refund_late_fee_payment, add_book_to_catalog, return_book_by_patron
 # pay_late_fees required tests
 
 def test_successful_payment(mocker):
@@ -231,7 +231,7 @@ def test_refund_gateway_returns_false():
 
 
 def test_refund_gateway_exception_wrapped():
-    # Any exception from the gateway should be wrapped in a 'Refund processing error' message
+    # Any exception from the gateway should be linked to a Refund processing error message
     # simulate a noisy third-party gateway raising exception
     gateway_double = Mock(spec=PaymentGateway)
     gateway_double.refund_payment.side_effect = Exception("Gateway offline")
@@ -242,4 +242,123 @@ def test_refund_gateway_exception_wrapped():
     assert ok is False
     assert msg.startswith("Refund processing error: ")
     assert "Gateway offline" in msg
-    gateway_double.refund_payment.assert_called_once_with("txn_765", 5.00)
+    gateway_double.refund_payment.assert_called_with("txn_765", 5.00)
+
+
+def test_title_over_200_chars():
+    # Title longer than 200 chars should be rejected
+    wordy_title = "A" * 201
+    ok, msg = add_book_to_catalog(
+        title=wordy_title,
+        author="A story",
+        isbn="9876543210123",
+        total_copies=3,
+    )
+    assert ok is False
+    assert msg == "Title must be less than 200 characters."
+
+
+def test_author_whitespace_only():
+    # Author made of spaces should trigger the Author is required path.
+    ok, msg = add_book_to_catalog(
+        title="Whitespaces    ",
+        author="                   ",
+        isbn="3210987654321",
+        total_copies=1,
+    )
+    assert ok is False
+    assert msg == "Author is required."
+
+
+def test_author_over_100_chars():
+    # Very long author name should hit the >100 chars guard.
+    long_pen_name = "Dr. " + ("Z" * 101)
+    ok, msg = add_book_to_catalog(
+        title="A shorter Title",
+        author=long_pen_name,
+        isbn="5556667778889",
+        total_copies=2,
+    )
+    assert ok is False
+    assert msg == "Author must be less than 100 characters."
+
+
+def test_book_missing_book(mocker):
+    # get_book_by_id() returns None 'Book not found.' branch
+    book_lookup_stub = mocker.patch(
+        "services.library_service.get_book_by_id",
+        return_value=None,
+    )
+    loan_stub = mocker.patch("services.library_service.get_active_borrow")
+    ok, msg = return_book_by_patron("909191", 444)
+    assert ok is False
+    assert msg == "Book not found."
+    book_lookup_stub.assert_called_once_with(444)
+    loan_stub.assert_not_called()
+
+
+def test_no_active_loan_patron(mocker):
+    # Book exists but get_active_borrow() returns None
+    mocker.patch(
+        "services.library_service.get_book_by_id",
+        return_value={"id": 444, "title": "Ghost Loan"},
+    )
+    active_stub = mocker.patch(
+        "services.library_service.get_active_borrow",
+        return_value=None,
+    )
+    ok, msg = return_book_by_patron("828282", 444)
+    assert ok is False
+    assert msg == "No active loan for this patron and book."
+    active_stub.assert_called_once_with("828282", 444)
+
+def test_fails_when_record_update_fails(mocker):
+    # update_borrow_record_return_date() returns false first DB error branch.
+    mocker.patch(
+        "services.library_service.get_book_by_id",
+        return_value={"id": 333, "title": "Return Glitch"},
+    )
+    past_due = (datetime.now() - timedelta(days=2)).isoformat()
+    mocker.patch(
+        "services.library_service.get_active_borrow",
+        return_value={"due_date": past_due},
+    )
+    record_stub = mocker.patch(
+        "services.library_service.update_borrow_record_return_date",
+        return_value=False,
+    )
+    stock_stub = mocker.patch(
+        "services.library_service.update_book_availability",
+        return_value=True,
+    )
+    ok, msg = return_book_by_patron("414141", 333)
+    assert ok is False
+    assert msg == "Couldn't record the return in the database."
+    record_stub.assert_called_once_with("414141", 333, mocker.ANY)
+    stock_stub.assert_not_called()
+
+
+def test_stock_update_fails(mocker):
+    # Record update succeeds but stock update fails which should trigger second db error branch.
+    mocker.patch(
+        "services.library_service.get_book_by_id",
+        return_value={"id": 909, "title": "Inventory Trouble"},
+    )
+    ok_due = (datetime.now() - timedelta(days=1)).isoformat()
+    mocker.patch(
+        "services.library_service.get_active_borrow",
+        return_value={"due_date": ok_due},
+    )
+    record_stub = mocker.patch(
+        "services.library_service.update_borrow_record_return_date",
+        return_value=True,
+    )
+    stock_stub = mocker.patch(
+        "services.library_service.update_book_availability",
+        return_value=False,
+    )
+    ok, msg = return_book_by_patron("565656", 909)
+    assert ok is False
+    assert msg == "Couldn't update book availability."
+    record_stub.assert_called_once()
+    stock_stub.assert_called_once_with(909, +1)
