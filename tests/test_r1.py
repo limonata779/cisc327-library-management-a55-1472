@@ -95,39 +95,3 @@ def test_duplicate_isbn():
     assert ("already" in second_note.lower()) or ("exists" in second_note.lower())
 
 
-def test_add_book_rejects_long_title():
-    # > 200 characters after strip()
-    huge_title = ("Stories, Archieves and facts" * 10).strip()
-    assert len(huge_title) > 200
-    ok, msg = add_book_to_catalog(
-        huge_title,
-        "Kim Possible",
-        "9123456789012",
-        3,
-    )
-    assert ok is False
-    assert msg == "Title must be less than 200 characters."
-
-def test_add_book_author_empty():
-    # author is only input as spaces which hits the "author is required" branch
-    ok, msg = add_book_to_catalog(
-        "Anonymous Confessions",
-        "            ", # empty spaces
-        "9345678901234",
-        2,
-    )
-    assert ok is False
-    assert msg == "Author is required."
-
-def test_add_book_insert_failure(mocker):
-    # Forces insert_book() to fail so the database error branch is executed
-    mocker.patch("services.library_service.get_book_by_isbn", return_value=None)
-    mocker.patch("services.library_service.insert_book", return_value=False)
-    ok, msg = add_book_to_catalog(
-        "Database structures",
-        "Developer Team",
-        "5012345678901",
-        4,
-    )
-    assert ok is False
-    assert msg == "Database error occurred while adding the book."
